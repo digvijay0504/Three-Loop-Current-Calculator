@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title> Three Loop Calculator</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #eef2f7;
+    padding: 12px;
+}
+.container {
+    max-width: 700px;
+    margin: auto;
+}
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+h1,h2 {
+    color: #174b91;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 8px;
+}
+input {
+    width: 100%;
+    padding: 10px 5px;
+    border: 1px solid #aaa;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+label {
+    font-size: 13px;
+    font-weight: bold;
+}
+button {
+    width: 100%;
+    padding: 13px;
+    background: #2563eb;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 16px;
+}
+.result {
+    padding: 12px;
+    background: #dcfce7;
+    margin: 8px 0;
+    border-radius: 7px;
+    font-weight: bold;
+}
+.step {
+    background: #f1f5f9;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 7px;
+    overflow-wrap: anywhere;
+}
+@media(max-width:450px) {
+    .grid {
+        grid-template-columns: repeat(2,1fr);
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1> Three Loop Current Calculator</h1>
+
+<div class="card">
+
+<h2>Loop 1 Resistors</h2>
+<div class="grid">
+<div><label>R1 (Ω)</label><input id="r1" type="number" value="2" min="0"></div>
+<div><label>R2 (Ω)</label><input id="r2" type="number" value="3" min="0"></div>
+<div><label>R3 (Ω)</label><input id="r3" type="number" value="4" min="0"></div>
+</div>
+
+<h2>Loop 2 Resistors</h2>
+<div class="grid">
+<div><label>R4 (Ω)</label><input id="r4" type="number" value="2" min="0"></div>
+<div><label>R5 (Ω)</label><input id="r5" type="number" value="3" min="0"></div>
+<div><label>R6 (Ω)</label><input id="r6" type="number" value="4" min="0"></div>
+</div>
+
+<h2>Loop 3 Resistors</h2>
+<div class="grid">
+<div><label>R7 (Ω)</label><input id="r7" type="number" value="2" min="0"></div>
+<div><label>R8 (Ω)</label><input id="r8" type="number" value="3" min="0"></div>
+<div><label>R9 (Ω)</label><input id="r9" type="number" value="4" min="0"></div>
+</div>
+
+<h2>Shared Resistances</h2>
+<div class="grid">
+<div><label>R12 (Ω)</label><input id="r12" type="number" value="1" min="0"></div>
+<div><label>R23 (Ω)</label><input id="r23" type="number" value="1" min="0"></div>
+<div><label>R13 (Ω)</label><input id="r13" type="number" value="0" min="0"></div>
+</div>
+
+<h2>Voltage Sources</h2>
+<div class="grid">
+<div><label>V1 (V)</label><input id="v1" type="number" value="12"></div>
+<div><label>V2 (V)</label><input id="v2" type="number" value="0"></div>
+<div><label>V3 (V)</label><input id="v3" type="number" value="0"></div>
+</div>
+
+<button onclick="calculate()">Calculate Current</button>
+
+</div>
+
+<div id="output"></div>
+
+</div>
+
+<script>
+
+// Solve simultaneous equations
+function solve(A,B) {
+
+    let M=A.map((r,i)=>[...r,B[i]]);
+
+    for(let i=0;i<3;i++) {
+
+        let p=i;
+
+        for(let j=i+1;j<3;j++)
+            if(Math.abs(M[j][i])>Math.abs(M[p][i])) p=j;
+
+        if(Math.abs(M[p][i])<1e-12)
+            throw Error("No unique solution. Check resistance values.");
+
+        [M[i],M[p]]=[M[p],M[i]];
+
+        let d=M[i][i];
+
+        for(let j=i;j<4;j++) M[i][j]/=d;
+
+        for(let k=0;k<3;k++) {
+            if(k!==i) {
+                let f=M[k][i];
+                for(let j=i;j<4;j++)
+                    M[k][j]-=f*M[i][j];
+            }
+        }
+    }
+
+    return M.map(r=>r[3]);
+}
+
+function fmt(n) {
+    return Number(n.toFixed(5)).toString();
+}
+
+function calculate() {
+
+    let ids=[
+        "r1","r2","r3",
+        "r4","r5","r6",
+        "r7","r8","r9",
+        "r12","r23","r13",
+        "v1","v2","v3"
+    ];
+
+    let x={};
+
+    for(let id of ids) {
+        let value=document.getElementById(id).value;
+        if(value.trim()==="") {
+            alert("Please enter all values.");
+            return;
+        }
+        x[id]=Number(value);
+        if(!Number.isFinite(x[id])) {
+            alert("Enter valid numbers.");
+            return;
+        }
+    }
+
+    for(let id of ids.slice(0,12)) {
+        if(x[id]<0) {
+            alert("Resistance cannot be negative.");
+            return;
+        }
+    }
+
+    let {
+        r1,r2,r3,r4,r5,r6,r7,r8,r9,
+        r12,r23,r13,v1,v2,v3
+    }=x;
+
+    // Total resistance in each individual loop
+    let L1=r1+r2+r3;
+    let L2=r4+r5+r6;
+    let L3=r7+r8+r9;
+
+    // KVL coefficient matrix
+    let A=[
+        [L1+r12+r13,-r12,-r13],
+        [-r12,L2+r12+r23,-r23],
+        [-r13,-r23,L3+r13+r23]
+    ];
+
+    let V=[v1,v2,v3];
+
+    let I;
+    let contributions=[];
+
+    try {
+        I=solve(A,V);
+
+        // Superposition
+        for(let k=0;k<3;k++) {
+            let b=[0,0,0];
+            b[k]=V[k];
+            contributions.push(solve(A,b));
+        }
+    } catch(e) {
+        alert(e.message);
+        return;
+    }
+
+    let out=`
+    <div class="card">
+    <h2>Final Current</h2>
+    <div class="result">I1 = ${fmt(I[0])} A</div>
+    <div class="result">I2 = ${fmt(I[1])} A</div>
+    <div class="result">I3 = ${fmt(I[2])} A</div>
+    <p>Negative value indicates opposite direction.</p>
+    </div>
+    `;
+
+    out+=`
+    <div class="card">
+    <h2>Method 1: Mesh Current Method</h2>
+    <div class="step">
+    <b>Step 1: Calculate loop resistances</b>
+    <p>L1 = ${r1} + ${r2} + ${r3} = ${L1} Ω</p>
+    <p>L2 = ${r4} + ${r5} + ${r6} = ${L2} Ω</p>
+    <p>L3 = ${r7} + ${r8} + ${r9} = ${L3} Ω</p>
+    </div>
+    <div class="step">
+    <b>Step 2: KVL equations</b>
+    <p>${fmt(A[0][0])}I1 - ${r12}I2 - ${r13}I3 = ${v1}</p>
+    <p>-${r12}I1 + ${fmt(A[1][1])}I2 - ${r23}I3 = ${v2}</p>
+    <p>-${r13}I1 - ${r23}I2 + ${fmt(A[2][2])}I3 = ${v3}</p>
+    </div>
+    <div class="step">
+    <b>Step 3: Final answer</b>
+    <p>I1 = ${fmt(I[0])} A</p>
+    <p>I2 = ${fmt(I[1])} A</p>
+    <p>I3 = ${fmt(I[2])} A</p>
+    </div>
+    </div>
+    `;
+
+    out+=`
+    <div class="card">
+    <h2>Method 2: Superposition Theorem</h2>
+    `;
+
+    for(let k=0;k<3;k++) {
+        out+=`
+        <div class="step">
+        <b>Voltage source V${k+1} active alone</b>
+        <p>I1 = ${fmt(contributions[k][0])} A</p>
+        <p>I2 = ${fmt(contributions[k][1])} A</p>
+        <p>I3 = ${fmt(contributions[k][2])} A</p>
+        </div>
+        `;
+    }
+
+    out+=`
+    <div class="step">
+    <b>Adding all contributions</b>
+    <p>I1 = ${fmt(I[0])} A</p>
+    <p>I2 = ${fmt(I[1])} A</p>
+    <p>I3 = ${fmt(I[2])} A</p>
+    </div>
+    </div>
+    `;
+
+    document.getElementById("output").innerHTML=out;
+
+    document.getElementById("output").scrollIntoView({
+        behavior:"smooth"
+    });
+}
+
+</script>
+</body>
+</html>
